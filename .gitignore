@@ -33,3 +33,4 @@ env/
 *.keras
 tmp/
 keras-model/
+tmp.*

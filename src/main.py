@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile, Header
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated
 from pydantic import BaseModel
 from tokenizer import generate_token, validate_token
@@ -14,6 +15,15 @@ from model_initializer import init_model
 load_dotenv()
 
 app = FastAPI()
+
+# Add middleware to enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # This allows requests from any origin, you can specify specific origins if needed
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Allow the required HTTP methods
+    allow_headers=["Authorization", "Content-Type"],  # Allow the required headers
+)
 
 
 class User(BaseModel):
