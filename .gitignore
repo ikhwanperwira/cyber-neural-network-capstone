@@ -12,7 +12,7 @@ build/
 # Virtual environments
 .venv/
 env/
-.env/
+.env
 
 # IDE specific files
 .vscode/
@@ -28,6 +28,7 @@ env/
 *.tmp
 
 # Miscellaneous
+.env
 .DS_Store
 *.keras
 tmp/
