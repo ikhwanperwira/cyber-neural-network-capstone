@@ -7,5 +7,4 @@ PyJwt
 python-multipart
 opencv-python-headless
 numpy
-opencv-stubs
 gdown
