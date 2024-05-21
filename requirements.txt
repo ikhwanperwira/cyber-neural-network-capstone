@@ -1,0 +1,11 @@
+fastapi
+keras
+tensorflow
+tf-keras
+python-dotenv
+PyJwt
+python-multipart
+opencv-python
+numpy
+opencv-stubs
+gdown
