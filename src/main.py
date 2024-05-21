@@ -12,7 +12,6 @@ from uploader import upload_temporary_file
 from model_initializer import init_model
 
 load_dotenv()
-init_model()
 
 app = FastAPI()
 
@@ -45,6 +44,9 @@ async def login(user: User):
 
 @app.post('/infer')
 async def infer(authorization: Annotated[str, Header()], file: UploadFile):
+
+  init_model()
+
   try:
     # read token from Authorization header
     token = authorization.split('Bearer ')[1]
