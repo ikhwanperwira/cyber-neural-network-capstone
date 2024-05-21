@@ -1,17 +1,18 @@
 from fastapi import FastAPI, HTTPException, UploadFile, Header
 from typing import Annotated
 from pydantic import BaseModel
-import uvicorn
 from tokenizer import generate_token, validate_token
 from datetime import timedelta
 from fastapi.logger import logger
-import os
+# import os
 from dotenv import load_dotenv
 import logging
 from infer import infer_image
 from uploader import upload_temporary_file
+from model_initializer import init_model
 
 load_dotenv()
+init_model()
 
 app = FastAPI()
 
@@ -71,4 +72,3 @@ async def infer(authorization: Annotated[str, Header()], file: UploadFile):
 
 if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO)
-  uvicorn.run(app, host=os.environ['HOST'], port=int(os.environ['PORT']))
