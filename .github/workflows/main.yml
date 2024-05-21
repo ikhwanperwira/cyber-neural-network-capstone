@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Build and Deploy with Buildpacks
 
 on:
   push:
@@ -16,8 +16,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+    - name: Install Pack CLI
+      run: |
+        sudo add-apt-repository ppa:cncf-buildpacks/pack-cli
+        sudo apt-get update
+        sudo apt-get install pack-cli
 
     - name: Log in to Docker Hub
       uses: docker/login-action@v2
@@ -25,23 +28,7 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Cache Docker layers
-      uses: actions/cache@v3
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-
-
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/transventricular-image:latest
-
-    - name: Build using pack
+    - name: Build and push Docker image using Buildpacks
       run: |
-        pack build transventricular-image --builder gcr.io/buildpacks/builder:v1 --path .
-        docker tag transventricular-image ${{ secrets.DOCKER_USERNAME }}/transventricular-image:latest
+        pack build ${{ secrets.DOCKER_USERNAME }}/transventricular-image --builder gcr.io/buildpacks/builder:v1 --path .
         docker push ${{ secrets.DOCKER_USERNAME }}/transventricular-image:latest
