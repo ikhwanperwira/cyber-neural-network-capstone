@@ -7,34 +7,23 @@ session_start();
 use Aws\Exception\AwsException;
 use Aws\S3\Exception\S3Exception;
 
-//Periksa apakah pengguna sudah login
-if (!isset($_SESSION['id_token']) || !isset($_SESSION['refreshToken'])) {
+// Periksa apakah pengguna sudah login
+if (!isset($_SESSION['idToken']) || !isset($_SESSION['refresh_token'])) {
     header('Location: login.php');
     exit();
 }
 
-// Ambil token dari sesi
-$idToken = $_SESSION['id_token'];
-$result = $_SESSION['refreshToken'];
+refreshTokenIfNeeded($client, $clientId);
 
-// Validasi token
-$decodedToken = validateToken($idToken, $region, $userPoolId);
-
-if (!$decodedToken) {
-    // Jika token tidak valid, coba refresh token
-    $newTokens = refreshToken($refreshToken, $clientId, $region, $accessKeyId, $secretAccessKey);
-    
-    if ($newTokens) {
-        $_SESSION['id_token'] = $newTokens['id_token'];
-        $decodedToken = validateToken($_SESSION['id_token'], $region, $userPoolId);
-    } else {
-        // Token tidak bisa di-refresh, logout pengguna
-        header('Location: logout.php');
-        exit();
-    }
+// Validate token
+$expectedAud = $clientId;
+try {
+    $decodedToken = validateToken($_SESSION['idToken'], $expectedAud);
+} catch (Exception $e) {
+    echo 'Token validation failed: ' . $e->getMessage();
 }
 
-// Handle file upload
+ // Handle file upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['files']['name'][0])) {
     $uploadedFiles = $_FILES['files'];
     $fileCount = count($uploadedFiles['name']);
@@ -82,6 +71,7 @@ try {
     </head>
  
 <body>
+<h1>Selamat datang, <?php echo htmlspecialchars($_SESSION['email']); ?>!</h1>
     <form method="POST" enctype="multipart/form-data">
         <div class="form-group">
             <input type="file" name="files[]" class="form-control-file mt-3" multiple required>

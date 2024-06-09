@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $token = $_POST['token'];
 
         // TODO: validate token
+       
         
         // Retrieve image from user request
         $image = $_FILES['image']['tmp_name'];

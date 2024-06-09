@@ -1,6 +1,5 @@
 <?php
 require 'aws-config.php';
-require 'vendor/autoload.php';
 
 use Aws\Exception\AwsException;
 
@@ -23,14 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $authenticationResult = $result['AuthenticationResult'];
 
             // Simpan AccessToken dalam sesi
-            $_SESSION['id_token'] = $result['AuthenticationResult']['id_token'];
+            $_SESSION['access_token'] = $result['AuthenticationResult']['AccessToken'];
+            $_SESSION['idToken'] = $result['AuthenticationResult']['IdToken'];
             $_SESSION['email'] = $email;
-        
-            echo '<pre>';
-            var_dump($authenticationResult);
-            echo '</pre>';
-        //header('Location: index.php');
-        //exit();
+            $_SESSION['refresh_token'] = $result['AuthenticationResult']['RefreshToken'];
+            $_SESSION['access_token_expiration'] = time() + $authenticationResult['ExpiresIn'];
+
+        header('Location: index.php');
+        exit();
         } catch (AwsException $e) {
             echo 'Login gagal: ' . $e->getAwsErrorMessage();
         }
@@ -85,9 +84,17 @@ $verified = isset($_GET['verified']) && $_GET['verified'] === 'true';
 </form>
 
 <p class="text-wthite">Belum punya akun? <a href="register.php" class="text-daftar btn btn-primary">Daftar sekarang</a></p>
+
+<?php if (isset($authenticationResult)): ?>
+        <div class="alert alert-info" role="alert">
+            <strong>Access Token:</strong> <?php echo htmlspecialchars($authenticationResult['AccessToken']); ?><br>
+            <strong>ID Token:</strong> <?php echo htmlspecialchars($authenticationResult['IdToken']); ?><br>
+            <strong>Refresh Token:</strong> <?php echo htmlspecialchars($authenticationResult['RefreshToken']); ?>
+        </div>
+    <?php endif; ?>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN" crossorigin="anonymous"></script>
 </body>
-</html> 
+</html>

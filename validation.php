@@ -4,55 +4,48 @@ require 'vendor/autoload.php';
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\JWK;
+use Firebase\JWT\Key;
 use Aws\Exception\AwsException;
-use Aws\CognitoIdentityProvider\CognitoIdentityProviderClient;
 
-function getJWKS($region, $userPoolId) {
-    $url = "https://cognito-idp.{$region}.amazonaws.com/{$userPoolId}/.well-known/jwks.json";
-    $json = file_get_contents($url);
-    $jwks = json_decode($json, true);
-    return $jwks['keys'];
-}
+function validateToken($idToken, $expectedAud) {
+    list($headerEncoded, $payloadEncoded, $signatureEncoded) = explode('.', $idToken);
 
-function validateToken($idToken, $region, $userPoolId) {
-    try {
-        $jwks = getJWKS($region, $userPoolId);
-        $decodedToken = JWT::decode($idToken, JWK::parseKeySet($jwks), ['RS256']);
-        
-        // Periksa apakah token sudah kadaluarsa
-        if ($decodedToken->exp < time()) {
-            throw new Exception('Token has expired');
-        }
+    // Decode the payload
+    $payload = json_decode(base64_decode($payloadEncoded), true);
 
-        return $decodedToken;
-    } catch (Exception $e) {
-        echo 'Token validation failed: ' . $e->getMessage();
-        return false;
+    // Periksa apakah token sudah kadaluarsa
+    if ($payload['exp'] < time()) {
+        throw new Exception('Token has expired');
     }
+
+    // Periksa apakah 'aud' sesuai
+    if ($payload['aud'] !== $expectedAud) {
+        throw new Exception('Invalid token audience');
+    }
+
+    return $payload;
 }
 
-function refreshToken($refreshToken, $clientId, $region, $accessKeyId, $secretAccessKey) {
-    try {
-        $client = new CognitoIdentityProviderClient([
-            'version' => 'latest',
-            'region' => $region,
-            'credentials' => [
-                'key' => $accessKeyId,
-                'secret' => $secretAccessKey,
-            ],
-        ]);
+// Fungsi untuk memperbarui token
+function refreshTokenIfNeeded($client, $clientId) {
+    if (!isset($_SESSION['access_token_expiration']) || time() >= $_SESSION['access_token_expiration']) {
+        try {
+            $result = $client->initiateAuth([
+                'ClientId' => $clientId,
+                'AuthFlow' => 'REFRESH_TOKEN_AUTH',
+                'AuthParameters' => [
+                    'REFRESH_TOKEN' => $_SESSION['refresh_token'],
+                ],
+            ]);
 
-        $result = $client->initiateAuth([
-            'ClientId' => $clientId,
-            'AuthFlow' => 'REFRESH_TOKEN_AUTH',
-            'AuthParameters' => [
-                'REFRESH_TOKEN' => $refreshToken,
-            ],
-        ]);
-
-        return $result['AuthenticationResult'];
-    } catch (AwsException $e) {
-        echo 'Token refresh failed: ' . $e->getAwsErrorMessage();
-        return false;
+            $_SESSION['access_token'] = $result['AuthenticationResult']['AccessToken'];
+            $_SESSION['id_token'] = $result['AuthenticationResult']['IdToken'];
+            $_SESSION['access_token_expiration'] = time() + $result['AuthenticationResult']['ExpiresIn'];
+        } catch (AwsException $e) {
+            echo 'Error refreshing token: ' . $e->getAwsErrorMessage();
+            session_destroy();
+            header('Location: login.php');
+            exit();
+        }
     }
 }
