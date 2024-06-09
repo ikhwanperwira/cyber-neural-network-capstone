@@ -154,7 +154,7 @@ def postprocess(prediction, preprocessed_image):
                 (max_x, max_y), (0, 0, 255), 2)
 
   detections.append(np.array(detected_image))
-  cv2.imwrite(os.path.join('tmp', 'infer_output.jpg'), detected_image)
+  cv2.imwrite(os.path.join('./', 'infer_output.jpg'), detected_image)
 
 
 def infer_image(image_filepath):
@@ -176,3 +176,6 @@ def infer_image(image_filepath):
   predictions[predictions <= 0.5] = 0.0
 
   postprocess(prediction[0], images[0])
+
+
+infer_image('input.dat')
