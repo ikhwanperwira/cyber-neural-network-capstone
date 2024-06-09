@@ -1,5 +1,6 @@
 <?php
 require 'aws-config.php';
+require 'vendor/autoload.php';
 
 use Aws\Exception\AwsException;
 
@@ -22,13 +23,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $authenticationResult = $result['AuthenticationResult'];
 
             // Simpan AccessToken dalam sesi
-            $_SESSION['access_token'] = $result['AuthenticationResult']['AccessToken'];
-            $_SESSION['id_token'] = $result['AuthenticationResult']['IdToken'];
-            $_SESSION['refresh_token'] = $result['AuthenticationResult']['RefreshToken'];
-            $_SESSION['access_token_expiration'] = time() + $authenticationResult['ExpiresIn'];
-
-        header('Location: index.php');
-        exit();
+            $_SESSION['id_token'] = $result['AuthenticationResult']['id_token'];
+            $_SESSION['email'] = $email;
+        
+            echo '<pre>';
+            var_dump($authenticationResult);
+            echo '</pre>';
+        //header('Location: index.php');
+        //exit();
         } catch (AwsException $e) {
             echo 'Login gagal: ' . $e->getAwsErrorMessage();
         }

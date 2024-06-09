@@ -1,45 +1,40 @@
 <?php
 require 'aws-config.php';
+require 'validation.php';
 
 session_start();
 
 use Aws\Exception\AwsException;
 use Aws\S3\Exception\S3Exception;
 
-// Fungsi untuk memperbarui token
-function refreshTokenIfNeeded($client, $clientId) {
-    if (!isset($_SESSION['access_token_expiration']) || time() >= $_SESSION['access_token_expiration']) {
-        try {
-            $result = $client->initiateAuth([
-                'ClientId' => $clientId,
-                'AuthFlow' => 'REFRESH_TOKEN_AUTH',
-                'AuthParameters' => [
-                    'REFRESH_TOKEN' => $_SESSION['refresh_token'],
-                ],
-            ]);
-
-            $_SESSION['access_token'] = $result['AuthenticationResult']['AccessToken'];
-            $_SESSION['id_token'] = $result['AuthenticationResult']['IdToken'];
-            $_SESSION['access_token_expiration'] = time() + $result['AuthenticationResult']['ExpiresIn'];
-        } catch (AwsException $e) {
-            echo 'Error refreshing token: ' . $e->getAwsErrorMessage();
-            session_destroy();
-            header('Location: login.php');
-            exit();
-        }
-    }
-}
-
-// Periksa apakah pengguna sudah login
-if (!isset($_SESSION['access_token'])) {
+//Periksa apakah pengguna sudah login
+if (!isset($_SESSION['id_token']) || !isset($_SESSION['refreshToken'])) {
     header('Location: login.php');
     exit();
 }
 
-// Perbarui token jika diperlukan
-refreshTokenIfNeeded($client, $clientId);
+// Ambil token dari sesi
+$idToken = $_SESSION['id_token'];
+$result = $_SESSION['refreshToken'];
 
- // Handle file upload
+// Validasi token
+$decodedToken = validateToken($idToken, $region, $userPoolId);
+
+if (!$decodedToken) {
+    // Jika token tidak valid, coba refresh token
+    $newTokens = refreshToken($refreshToken, $clientId, $region, $accessKeyId, $secretAccessKey);
+    
+    if ($newTokens) {
+        $_SESSION['id_token'] = $newTokens['id_token'];
+        $decodedToken = validateToken($_SESSION['id_token'], $region, $userPoolId);
+    } else {
+        // Token tidak bisa di-refresh, logout pengguna
+        header('Location: logout.php');
+        exit();
+    }
+}
+
+// Handle file upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['files']['name'][0])) {
     $uploadedFiles = $_FILES['files'];
     $fileCount = count($uploadedFiles['name']);

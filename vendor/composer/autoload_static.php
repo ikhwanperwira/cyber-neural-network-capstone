@@ -35,6 +35,10 @@ class ComposerStaticInit85325c0f13ef626582fea9d1df635a9d
             'GuzzleHttp\\Promise\\' => 19,
             'GuzzleHttp\\' => 11,
         ),
+        'F' => 
+        array (
+            'Firebase\\JWT\\' => 13,
+        ),
         'A' => 
         array (
             'Aws\\' => 4,
@@ -70,6 +74,10 @@ class ComposerStaticInit85325c0f13ef626582fea9d1df635a9d
         'GuzzleHttp\\' => 
         array (
             0 => __DIR__ . '/..' . '/guzzlehttp/guzzle/src',
+        ),
+        'Firebase\\JWT\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/firebase/php-jwt/src',
         ),
         'Aws\\' => 
         array (
