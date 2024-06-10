@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 import cv2
 import numpy as np
 import os
-
 # pylint: disable=no-member
 
 load_dotenv()

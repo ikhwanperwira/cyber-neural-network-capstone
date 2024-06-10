@@ -1,73 +1,43 @@
-from fastapi import FastAPI, HTTPException, UploadFile, Header
+from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Annotated
-from pydantic import BaseModel
-from tokenizer import generate_token, validate_token
-from datetime import timedelta
-from fastapi.logger import logger
-# import os
 from dotenv import load_dotenv
 import logging
 from infer import infer_image
-from uploader import upload_temporary_file
 from model_initializer import init_model
+from awsutils import upload_file
+import hashlib
+import os
+
+
+def md5sum(filename):
+  md5 = hashlib.md5()
+  with open(filename, 'rb') as f:
+    for chunk in iter(lambda: f.read(128 * md5.block_size), b''):
+      md5.update(chunk)
+  return md5.hexdigest()
+
 
 load_dotenv()
+
 
 app = FastAPI()
 
 # Add middleware to enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # This allows requests from any origin, you can specify specific origins if needed
+    # This allows requests from any origin, you can specify specific origins if needed
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Allow the required HTTP methods
-    allow_headers=["Authorization", "Content-Type"],  # Allow the required headers
+    # Allow the required HTTP methods
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    # Allow the required headers
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
-class User(BaseModel):
-  username: str
-  password: str
-
-
-@app.post('/login')
-async def login(user: User):
-  username = user.username
-  password = user.password
-
-  # Logging the login request
-  logger.info("User %s is trying to login", username)
-
-  # Add your login logic here
-  if username == 'rumah_sakit_gws' and password == 'aamiin':
-    return {
-        "detail": "Login berhasil!",
-        "token": generate_token({"username": username}, timedelta(minutes=15))
-    }
-
-  logger.info("User %s failed to login", username)
-
-  # Raise HTTPException with status code 401 for unauthorized
-  raise HTTPException(status_code=401, detail="Login gagal!")
-
-
-@app.post('/infer')
-async def infer(authorization: Annotated[str, Header()], file: UploadFile):
-
+@ app.post('/infer')
+async def infer(file: UploadFile):
   init_model()
-
-  try:
-    # read token from Authorization header
-    token = authorization.split('Bearer ')[1]
-    decoded_jwt = validate_token(token)
-  except Exception as exc:
-    raise HTTPException(status_code=401, detail="Token tidak valid!") from exc
-
-  username = decoded_jwt['username']
-
-  # Log fastapi of logged username with fastapi log utils
-  logger.info("User %s is trying to upload a file", username)
 
   # store image on disk
   with open('tmp/infer_input.dat', 'wb') as f:
@@ -76,11 +46,14 @@ async def infer(authorization: Annotated[str, Header()], file: UploadFile):
   # infer the image (stored in tmp/infer_output.jpg)
   infer_image('tmp/infer_input.dat')
 
-  infer_result = upload_temporary_file('tmp/infer_output.jpg')
+  # rename infer_output.jpg to md5.jpg
+  md5 = md5sum('tmp/infer_output.jpg')
+  os.rename('tmp/infer_output.jpg', f'tmp/{md5}.jpg')
 
-  return {"detail": "Infer berhasil!", "url": infer_result}
-  # return {"detail": "Upload berhasil!"}
+  # upload the infer_output.jpg to s3
+  is_success = upload_file(f'tmp/{md5}.jpg', 'imagecnnfiles', f'{md5}.jpg')
 
+  return {"detail": "Infer berhasil!", "is_sucesss": is_success, "md5": md5}
 
 if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO)
