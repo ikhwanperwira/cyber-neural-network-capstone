@@ -28,6 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $_SESSION['refresh_token'] = $result['AuthenticationResult']['RefreshToken'];
             $_SESSION['access_token_expiration'] = time() + $authenticationResult['ExpiresIn'];
 
+        //echo '<pre>';
+        //var_dump($authenticationResult);
+        //echo '</pre>';
         header('Location: index.php');
         exit();
         } catch (AwsException $e) {
