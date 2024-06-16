@@ -7,6 +7,9 @@ session_start();
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 use Aws\S3\Exception\S3Exception;
+use Aws\DynamoDb\DynamoDbClient;
+use Aws\DynamoDb\Exception\DynamoDbException;
+date_default_timezone_set('Asia/Jakarta');
 
 // Periksa apakah pengguna sudah login
 if (!isset($_SESSION['idToken']) || !isset($_SESSION['refresh_token'])) {
@@ -33,6 +36,23 @@ function jsonResponse($status, $message, $data = []) {
     exit();
 }
 
+function saveDataToDynamoDb($dynamoDb, $tableName, $email, $tanggal, $url_s3_bucket) {
+    try {
+        $dynamoDb->putItem([
+            'TableName' => $tableName,
+            'Item' => [
+                'email' => ['S' => $email],
+                'tanggal' => ['S' => $tanggal],
+                'url_s3_bucket' => ['S' => $url_s3_bucket],
+            ],
+        ]);
+        return true;
+    } catch (DynamoDbException $e) {
+        error_log("Gagal menyimpan data ke DynamoDB: " . $e->getMessage());
+        return false;
+    }
+}
+
 // Unggah file dan proses inferensi
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['image'])) {
     // Cek apakah file gambar telah diunggah
@@ -42,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['image'])) {
 
     // Unggah file gambar ke server Python untuk inferensi
     $imagePath = $_FILES['image']['tmp_name'];
-    $inferApiUrl = 'http://13.214.156.114:8080/infer'; // Ganti dengan URL API inferensi Anda
+    $inferApiUrl = 'http://13.214.136.181:8080/infer'; // Ganti dengan URL API inferensi Anda
 
     $ch = curl_init($inferApiUrl);
     curl_setopt($ch, CURLOPT_POST, 1);
@@ -71,9 +91,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['image'])) {
 
     $md5 = $responseData['md5'];
 
-    // Unduh gambar dari S3 bucket berdasarkan MD5
+    // Informasi gambar di S3
     $bucket = 'imagecnnfiles';
     $filename = $md5 . '.jpg';
+    $email = $_SESSION['email'];
+    $tanggal = date('Y-m-d H:i:s');
+    $url_s3_bucket = 'https://' . $bucket . '.s3.amazonaws.com/' . $filename;
+    
+    error_log("Menyimpan ke DynamoDB: Email = $email, Tanggal = $tanggal, URL S3 = $url_s3_bucket");
+    
+    $saveResult = saveDataToDynamoDb($dynamoDb, $tableName, $email, $tanggal, $url_s3_bucket);
+    if (!$saveResult) {
+        jsonResponse(500, 'Gagal menyimpan data ke DynamoDB');
+    }    
 
     try {
         $s3 = new S3Client([

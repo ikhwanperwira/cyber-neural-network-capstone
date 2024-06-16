@@ -33,7 +33,7 @@ if (!isset($_FILES['image']) || $_FILES['image']['error'] != UPLOAD_ERR_OK) {
 
 // Unggah file gambar ke server Python untuk inferensi
 $imagePath = $_FILES['image']['tmp_name'];
-$inferApiUrl = 'http://54.179.160.218:8080/infer'; //kalau fargate dimatikan maka publik IP berubah
+$inferApiUrl = 'http://13.214.136.181:8080/infer'; //kalau fargate dimatikan maka publik IP berubah
 
 $ch = curl_init($inferApiUrl);
 curl_setopt($ch, CURLOPT_POST, 1);
