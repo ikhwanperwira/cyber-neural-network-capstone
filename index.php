@@ -7,6 +7,9 @@ session_start();
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 use Aws\S3\Exception\S3Exception;
+use Aws\DynamoDb\DynamoDbClient;
+use Aws\DynamoDb\Exception\DynamoDbException;
+date_default_timezone_set('Asia/Jakarta');
 
 // Periksa apakah pengguna sudah login
 if (!isset($_SESSION['idToken']) || !isset($_SESSION['refresh_token'])) {
@@ -33,6 +36,23 @@ function jsonResponse($status, $message, $data = []) {
     exit();
 }
 
+function saveDataToDynamoDb($dynamoDb, $tableName, $email, $tanggal, $url_s3_bucket) {
+    try {
+        $dynamoDb->putItem([
+            'TableName' => $tableName,
+            'Item' => [
+                'email' => ['S' => $email],
+                'tanggal' => ['S' => $tanggal],
+                'url_s3_bucket' => ['S' => $url_s3_bucket],
+            ],
+        ]);
+        return true;
+    } catch (DynamoDbException $e) {
+        error_log("Gagal menyimpan data ke DynamoDB: " . $e->getMessage());
+        return false;
+    }
+}
+
 // Unggah file dan proses inferensi
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['image'])) {
     // Cek apakah file gambar telah diunggah
@@ -42,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['image'])) {
 
     // Unggah file gambar ke server Python untuk inferensi
     $imagePath = $_FILES['image']['tmp_name'];
-    $inferApiUrl = 'http://13.214.156.114:8080/infer'; // Ganti dengan URL API inferensi Anda
+    $inferApiUrl = 'http://52.77.245.227:8080/infer'; // Ganti dengan URL API inferensi Anda
 
     $ch = curl_init($inferApiUrl);
     curl_setopt($ch, CURLOPT_POST, 1);
@@ -71,9 +91,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['image'])) {
 
     $md5 = $responseData['md5'];
 
-    // Unduh gambar dari S3 bucket berdasarkan MD5
+    // Informasi gambar di S3
     $bucket = 'imagecnnfiles';
     $filename = $md5 . '.jpg';
+    $email = $_SESSION['email'];
+    $tanggal = date('Y-m-d H:i:s');
+    $url_s3_bucket = 'https://' . $bucket . '.s3.amazonaws.com/' . $filename;
+    
+    error_log("Menyimpan ke DynamoDB: Email = $email, Tanggal = $tanggal, URL S3 = $url_s3_bucket");
+    
+    $saveResult = saveDataToDynamoDb($dynamoDb, $tableName, $email, $tanggal, $url_s3_bucket);
+    if (!$saveResult) {
+        jsonResponse(500, 'Gagal menyimpan data ke DynamoDB');
+    }    
 
     try {
         $s3 = new S3Client([
@@ -143,75 +173,32 @@ if (isset($_GET['download'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CNN Inferred</title>
+    <title>Upload Image</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css">
 </head>
-<body>
-    <div class="container mt-5">
-        <h1>Selamat datang, <?php echo htmlspecialchars($_SESSION['email']); ?>!</h1>
+<body class="bg-gradient-to-r from-purple-500 to-blue-500 flex justify-center items-center min-h-screen relative">
+    <div class="absolute top-4 right-4">
+        <a href="logout.php" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</a>
+    </div>
+    <div class="absolute top-4 left-4 text-white text-2xl font-bold">
+        Selamat datang, <?php echo htmlspecialchars($_SESSION['email']); ?>!
+    </div>
+    <div class="bg-white p-8 rounded shadow-md w-96">
+        <h1 class="text-2xl font-bold text-center mb-4">Upload Image</h1>
 
         <form id="upload-form" method="POST" enctype="multipart/form-data">
-            <div class="form-group mt-4">
-                <label for="image" class="form-label">Select image to upload:</label>
-                <input type="file" id="image" name="image" class="form-control-file" required>
+            <div class="mb-4">
+                <label for="image" class="block text-gray-700">Select Image</label>
+                <input type="file" id="image" name="image" class="mt-1 p-2 border w-full" required>
             </div>
-            <button type="submit" class="btn btn-primary mt-3">Upload and Infer</button>
+            <button type="submit" class="w-full bg-purple-600 text-white py-2 rounded hover:bg-purple-700">Upload</button>
         </form>
 
-        <div id="result" class="mt-5">
-            <!-- Hasil inferensi akan ditampilkan di sini -->
+        <div class="mt-4 text-center">
+            <a href="history.php" class="text-blue-500">View Upload History</a>
         </div>
 
-        <h2 class="mt-3">Images in S3 Bucket</h2>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Image</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                try {
-                    $s3 = new S3Client([
-                        'version' => 'latest',
-                        'region' => $region,
-                        'credentials' => [
-                            'key' => $accesKeyId,
-                            'secret' => $secretAccesKey,
-                        ],
-                    ]);
-
-                    $objects = $s3->listObjectsV2([
-                        'Bucket' => $bucket,
-                    ]);
-
-                    if (!empty($objects['Contents'])) {
-                        foreach ($objects['Contents'] as $object) {
-                            $fileUrl = 'https://' . $bucket . '.s3.amazonaws.com/' . $object['Key'];
-                            echo "<tr>
-                                    <td>
-                                        <img src=\"$fileUrl\" alt=\"{$object['Key']}\" style=\"max-width: 200px;\">
-                                        <p>$fileUrl</p>
-                                    </td>
-                                    <td>
-                                        <a href=\"?download={$object['Key']}\" class=\"btn btn-primary\">Download</a>
-                                        <a href=\"?delete={$object['Key']}\" class=\"btn btn-danger\">Delete</a>
-                                    </td>
-                                  </tr>";
-                        }
-                    } else {
-                        echo '<tr><td colspan="2">No images found in S3 bucket.</td></tr>';
-                    }
-                } catch (S3Exception $e) {
-                    echo 'Error fetching files from S3: ' . $e->getMessage();
-                }
-                ?>
-            </tbody>
-        </table>
-
-        <a href="logout.php" class="btn btn-danger">Logout</a>
+        <div id="result" class="mt-4"></div>
     </div>
 
     <script>

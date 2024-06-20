@@ -60,9 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <form method="POST">
             <h5 class="text-center text-white">Verify</h5>
             <input type="hidden" name="email" value="<?php echo htmlspecialchars($email); ?>">
-            <div>
-                <label for="code">Verification Code:</label>
-                <input type="text" name="code" class="form-control" required>
+            <div class="form-group">
+            <label for="password">Verification Code : </label>
+            <input type="password" name="password" class="form-control" required>
             </div><br>
             <input class="btn btn-success form-control mt-3 mb-3" type="submit" value="Verify">
         </form>
