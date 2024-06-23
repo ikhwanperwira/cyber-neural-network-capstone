@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['image'])) {
 
     // Unggah file gambar ke server Python untuk inferensi
     $imagePath = $_FILES['image']['tmp_name'];
-    $inferApiUrl = 'http://52.77.245.227:8080/infer'; // Ganti dengan URL API inferensi Anda
+    $inferApiUrl = 'http://54.179.173.35:8080/infer'; // Ganti dengan URL API inferensi Anda
 
     $ch = curl_init($inferApiUrl);
     curl_setopt($ch, CURLOPT_POST, 1);
